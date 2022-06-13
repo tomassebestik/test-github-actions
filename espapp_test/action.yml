@@ -1,0 +1,80 @@
+name: Build and Run Test Espressif Application
+description: Build and Run Espressif Application
+inputs:
+  app_directory:
+    description: "Application directory path in GitHub project"
+    default: test_app
+    required: true
+
+  espidf_versions:
+    type: choice
+    description: "Semicolon separated list of ESP-IDF versions to create test matrix"
+    options:
+      - "release-v4.3"
+      - "release-v4.4"
+      - "latest"
+    required: true
+
+  espidf_targets:
+    type: choice
+    description: "Semicolon separated list of ESP-IDF targets (chips) to create test matrix"
+    options:
+      - "esp32"
+      - "esp32c3"
+      - "esp32s3"
+      # - "esp32s2"  # @todo ESP32S2 has less RAM and the test_app will not fit
+    required: true
+
+  espidf_excluded_versions:
+    type: choice
+    description: "Semicolon separated list of ESP-IDF versions excluded from test matrix"
+    options:
+      - "esp32"
+      - "esp32c3"
+      - "esp32s3"
+      # - "esp32s2"  # @todo ESP32S2 has less RAM and the test_app will not fit
+        # "release-v4.3"
+    required: false
+
+  espidf_excluded_targets:
+    type: choice
+    description: "Semicolon separated list of ESP-IDF targets (chips) excluded from test matrix"
+    options:
+      - "esp32"
+      - "esp32c3"
+      - "esp32s3"  # ESP32S3 support started with version 4.4
+      # - "esp32s2"  # @todo ESP32S2 has less RAM and the test_app will not fit
+    required: false
+
+
+
+runs:
+  using: "composite"
+  env:
+    APP_DIRECTORY: ${{ inputs.app_directory }}
+    ESPIDF_VERSIONS: ${{ inputs.espidf_versions }}
+    ESPIDF_TARGETS: ${{ inputs.espidf_targets }}
+    ESPIDF_EXCLUDED_VERSIONS: ${{ inputs.espidf_excluded_versions }}
+    ESPIDF_EXCLUDED_TARGETS: ${{ inputs.espidf_excluded_targets }}
+  container: espressif/idf:${{ matrix.idf_ver }}
+  steps:
+        - uses: actions/checkout@v1
+          with:
+            submodules: 'true'
+        - name: Build Test Application
+          env:
+            IDF_TARGET: ${{ matrix.idf_target }}
+          shell: bash
+          working-directory: test_app
+          run: |
+            . ${IDF_PATH}/export.sh
+            idf.py build
+        - uses: actions/upload-artifact@v2
+          with:
+            name: test_app_bin_${{ matrix.idf_target }}_${{ matrix.idf_ver }}
+            path: |
+              test_app/build/bootloader/bootloader.bin
+              test_app/build/partition_table/partition-table.bin
+              test_app/build/idf_extra_test_app.bin
+              test_app/build/idf_extra_test_app.elf
+              test_app/build/flasher_args.json
